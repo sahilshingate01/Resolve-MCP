@@ -22,7 +22,7 @@ export interface TimelineInfo {
 
 export interface TrackInfo {
   index: number;
-  type: 'video' | 'audio' | 'subtitle';
+  type: "video" | "audio" | "subtitle";
   name: string;
   clips: ClipInfo[];
 }
@@ -112,7 +112,7 @@ export interface Timecode {
 export interface FrameRenderOptions {
   timelineId: string;
   frameNumber: number;
-  format?: 'png' | 'jpg' | 'exr';
+  format?: "png" | "jpg" | "exr";
   width?: number;
   height?: number;
   includeGuides?: boolean;
@@ -121,14 +121,14 @@ export interface FrameRenderOptions {
 export interface ScreenshotOptions {
   timelineId: string;
   timecode: Timecode;
-  format?: 'png' | 'jpg';
+  format?: "png" | "jpg";
   width?: number;
   height?: number;
 }
 
 export interface ExportOptions {
   timelineId: string;
-  format: 'edl' | 'fcpXML' | 'otio';
+  format: "edl" | "fcpXML" | "otio";
   outputPath: string;
   includeMarkers?: boolean;
   includeTransitions?: boolean;
@@ -178,7 +178,7 @@ export interface AddTextTitleOptions {
   fontFamily?: string;
   color?: string;
   position?: { x: number; y: number };
-  alignment?: 'left' | 'center' | 'right';
+  alignment?: "left" | "center" | "right";
 }
 
 export interface DuplicateTimelineOptions {
@@ -192,15 +192,14 @@ export interface AdjustClipPropertiesOptions {
 }
 
 export type ToolResult<T = unknown> =
-  | { success: true; data: T }
-  | { success: false; error: string; code: string };
+  { success: true; data: T } | { success: false; error: string; code: string };
 
 export interface ApprovalRequest {
   id: string;
   tool: string;
   description: string;
   params: Record<string, unknown>;
-  riskLevel: 'low' | 'medium' | 'high';
+  riskLevel: "low" | "medium" | "high";
   timestamp: number;
 }
 
@@ -228,5 +227,5 @@ export interface BridgeResponse {
 export interface ResolveVersion {
   version: string;
   build: string;
-  platform: 'mac' | 'windows' | 'linux';
+  platform: "mac" | "windows" | "linux";
 }

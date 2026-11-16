@@ -3,27 +3,27 @@
  * Requires explicit user confirmation before executing risky operations
  */
 
-import { ApprovalRequest, ApprovalResponse, ToolResult } from '../types/index.js';
-import { CallToolResult, TextContent } from '@modelcontextprotocol/sdk/types.js';
+import type { ApprovalRequest, ApprovalResponse } from "../types/index.js";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 type ApprovalHandler = (request: ApprovalRequest) => Promise<ApprovalResponse>;
 
 const DANGEROUS_TOOLS = new Set([
-  'cut_clip',
-  'trim_clip',
-  'ripple_delete',
-  'add_marker',
-  'add_text_title',
-  'duplicate_timeline',
-  'adjust_clip_properties',
-  'export_timeline',
-  'import_media',
+  "cut_clip",
+  "trim_clip",
+  "ripple_delete",
+  "add_marker",
+  "add_text_title",
+  "duplicate_timeline",
+  "adjust_clip_properties",
+  "export_timeline",
+  "import_media",
 ]);
 
 const HIGH_RISK_TOOLS = new Set([
-  'ripple_delete',
-  'trim_clip', // with ripple
-  'adjust_clip_properties', // color grade changes
+  "ripple_delete",
+  "trim_clip", // with ripple
+  "adjust_clip_properties", // color grade changes
 ]);
 
 export class ApprovalManager {
@@ -43,7 +43,10 @@ export class ApprovalManager {
     // Check cache
     const cacheKey = this.getCacheKey(request);
     if (this.approvedCache.has(cacheKey)) {
-      return { requestId: request.id, approved: this.approvedCache.get(cacheKey)! };
+      return {
+        requestId: request.id,
+        approved: this.approvedCache.get(cacheKey)!,
+      };
     }
 
     // Auto-approve if enabled (for testing)
@@ -61,7 +64,11 @@ export class ApprovalManager {
     }
 
     // Default: deny for safety
-    return { requestId: request.id, approved: false, reason: 'No approval handler configured' };
+    return {
+      requestId: request.id,
+      approved: false,
+      reason: "No approval handler configured",
+    };
   }
 
   private getCacheKey(request: ApprovalRequest): string {
@@ -80,18 +87,25 @@ export class ApprovalManager {
     return HIGH_RISK_TOOLS.has(tool);
   }
 
-  getRiskLevel(tool: string): 'low' | 'medium' | 'high' {
-    if (HIGH_RISK_TOOLS.has(tool)) return 'high';
-    if (DANGEROUS_TOOLS.has(tool)) return 'medium';
-    return 'low';
+  getRiskLevel(tool: string): "low" | "medium" | "high" {
+    if (HIGH_RISK_TOOLS.has(tool)) return "high";
+    if (DANGEROUS_TOOLS.has(tool)) return "medium";
+    return "low";
   }
 }
 
 export const approvalManager = new ApprovalManager();
 
 // Default CLI approval handler
-export async function cliApprovalHandler(request: ApprovalRequest): Promise<ApprovalResponse> {
-  const riskIndicator = request.riskLevel === 'high' ? '🔴 HIGH RISK' : request.riskLevel === 'medium' ? '🟡 MEDIUM RISK' : '🟢 LOW RISK';
+export async function cliApprovalHandler(
+  request: ApprovalRequest,
+): Promise<ApprovalResponse> {
+  const riskIndicator =
+    request.riskLevel === "high"
+      ? "🔴 HIGH RISK"
+      : request.riskLevel === "medium"
+        ? "🟡 MEDIUM RISK"
+        : "🟢 LOW RISK";
 
   console.error(`\n${riskIndicator} - Approval Required`);
   console.error(`Tool: ${request.tool}`);
@@ -103,14 +117,18 @@ export async function cliApprovalHandler(request: ApprovalRequest): Promise<Appr
   // For now, we'll simulate with a simple approach
   // The actual approval would come from the MCP client
 
-  return { requestId: request.id, approved: false, reason: 'MCP client must handle approval' };
+  return {
+    requestId: request.id,
+    approved: false,
+    reason: "MCP client must handle approval",
+  };
 }
 
 // Create approval request helper
 export function createApprovalRequest(
   tool: string,
   description: string,
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
 ): ApprovalRequest {
   return {
     id: crypto.randomUUID(),
@@ -118,7 +136,7 @@ export function createApprovalRequest(
     description,
     params,
     riskLevel: approvalManager.getRiskLevel(tool),
-    timestamp: Date.now()
+    timestamp: Date.now(),
   };
 }
 
@@ -127,7 +145,7 @@ export async function withApproval(
   tool: string,
   description: string,
   params: Record<string, unknown>,
-  execute: () => Promise<CallToolResult>
+  execute: () => Promise<CallToolResult>,
 ): Promise<CallToolResult> {
   // Check if approval needed
   if (!approvalManager.isDangerousTool(tool)) {
@@ -137,7 +155,7 @@ export async function withApproval(
       return {
         content: [
           {
-            type: 'text' as const,
+            type: "text" as const,
             text: error instanceof Error ? error.message : String(error),
           },
         ],
@@ -153,8 +171,8 @@ export async function withApproval(
     return {
       content: [
         {
-          type: 'text' as const,
-          text: response.reason || 'Action not approved by user',
+          type: "text" as const,
+          text: response.reason || "Action not approved by user",
         },
       ],
       isError: true,
@@ -167,7 +185,7 @@ export async function withApproval(
     return {
       content: [
         {
-          type: 'text' as const,
+          type: "text" as const,
           text: error instanceof Error ? error.message : String(error),
         },
       ],
