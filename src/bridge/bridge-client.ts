@@ -19,6 +19,13 @@ import type {
   AddTextTitleOptions,
   DuplicateTimelineOptions,
   AdjustClipPropertiesOptions,
+  CreateTimelineOptions,
+  SetTimelineSettingsOptions,
+  AppendClipOptions,
+  CreateSubtitleTrackOptions,
+  ImportSubtitlesOptions,
+  StartRenderJobOptions,
+  RenderJobStatusOptions,
   ExportOptions,
   FrameRenderOptions,
   ScreenshotOptions,
@@ -375,6 +382,122 @@ export class BridgeClient {
         format: options.format,
         width: options.width,
         height: options.height,
+      });
+      return result as ToolResult<{ message: string }>;
+    } catch (error) {
+      return { success: false, error: String(error), code: "BRIDGE_ERROR" };
+    }
+  }
+
+  async createTimeline(
+    options: CreateTimelineOptions,
+  ): Promise<ToolResult<{ timelineId: string; name: string; message: string }>> {
+    try {
+      const result = await this.sendRequest("create_timeline", {
+        name: options.name,
+      });
+      return result as ToolResult<{ timelineId: string; name: string; message: string }>;
+    } catch (error) {
+      return { success: false, error: String(error), code: "BRIDGE_ERROR" };
+    }
+  }
+
+  async setTimelineSettings(
+    options: SetTimelineSettingsOptions,
+  ): Promise<ToolResult<{ message: string }>> {
+    try {
+      const result = await this.sendRequest("set_timeline_settings", {
+        timelineId: options.timelineId,
+        width: options.width,
+        height: options.height,
+        frameRate: options.frameRate,
+      });
+      return result as ToolResult<{ message: string }>;
+    } catch (error) {
+      return { success: false, error: String(error), code: "BRIDGE_ERROR" };
+    }
+  }
+
+  async appendClipToTimeline(
+    options: AppendClipOptions,
+  ): Promise<ToolResult<{ clipId: string; message: string }>> {
+    try {
+      const result = await this.sendRequest("append_clip_to_timeline", {
+        mediaPoolItemId: options.mediaPoolItemId,
+        timelineId: options.timelineId,
+      });
+      return result as ToolResult<{ clipId: string; message: string }>;
+    } catch (error) {
+      return { success: false, error: String(error), code: "BRIDGE_ERROR" };
+    }
+  }
+
+  async createSubtitleTrack(
+    options: CreateSubtitleTrackOptions,
+  ): Promise<ToolResult<{ message: string }>> {
+    try {
+      const result = await this.sendRequest("create_subtitle_track", {
+        timelineId: options.timelineId,
+        trackName: options.trackName,
+      });
+      return result as ToolResult<{ message: string }>;
+    } catch (error) {
+      return { success: false, error: String(error), code: "BRIDGE_ERROR" };
+    }
+  }
+
+  async importSubtitles(
+    options: ImportSubtitlesOptions,
+  ): Promise<ToolResult<{ message: string }>> {
+    try {
+      const result = await this.sendRequest("import_subtitles", {
+        timelineId: options.timelineId,
+        srtPath: options.srtPath,
+      });
+      return result as ToolResult<{ message: string }>;
+    } catch (error) {
+      return { success: false, error: String(error), code: "BRIDGE_ERROR" };
+    }
+  }
+
+  async startRenderJob(
+    options: StartRenderJobOptions,
+  ): Promise<ToolResult<{ jobId: string; message: string }>> {
+    try {
+      const result = await this.sendRequest("start_render_job", {
+        targetDir: options.targetDir,
+        customName: options.customName,
+        format: options.format,
+        codec: options.codec,
+        width: options.width,
+        height: options.height,
+        frameRate: options.frameRate,
+      });
+      return result as ToolResult<{ jobId: string; message: string }>;
+    } catch (error) {
+      return { success: false, error: String(error), code: "BRIDGE_ERROR" };
+    }
+  }
+
+  async getRenderJobStatus(
+    options: RenderJobStatusOptions,
+  ): Promise<ToolResult<{ status: string; completionPercentage: number; isRendering: boolean }>> {
+    try {
+      const result = await this.sendRequest("get_render_job_status", {
+        jobId: options.jobId,
+      });
+      return result as ToolResult<{ status: string; completionPercentage: number; isRendering: boolean }>;
+    } catch (error) {
+      return { success: false, error: String(error), code: "BRIDGE_ERROR" };
+    }
+  }
+
+  async cancelRenderJob(
+    options: RenderJobStatusOptions,
+  ): Promise<ToolResult<{ message: string }>> {
+    try {
+      const result = await this.sendRequest("cancel_render_job", {
+        jobId: options.jobId,
       });
       return result as ToolResult<{ message: string }>;
     } catch (error) {

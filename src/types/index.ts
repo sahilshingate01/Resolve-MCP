@@ -191,6 +191,46 @@ export interface AdjustClipPropertiesOptions {
   properties: Partial<ClipProperties>;
 }
 
+export interface CreateTimelineOptions {
+  name: string;
+}
+
+export interface SetTimelineSettingsOptions {
+  timelineId: string;
+  width: number;
+  height: number;
+  frameRate: number;
+}
+
+export interface AppendClipOptions {
+  mediaPoolItemId: string;
+  timelineId?: string;
+}
+
+export interface CreateSubtitleTrackOptions {
+  timelineId: string;
+  trackName?: string;
+}
+
+export interface ImportSubtitlesOptions {
+  timelineId: string;
+  srtPath: string;
+}
+
+export interface StartRenderJobOptions {
+  targetDir: string;
+  customName: string;
+  format: string;
+  codec: string;
+  width: number;
+  height: number;
+  frameRate?: number;
+}
+
+export interface RenderJobStatusOptions {
+  jobId: string;
+}
+
 export type ToolResult<T = unknown> =
   { success: true; data: T } | { success: false; error: string; code: string };
 

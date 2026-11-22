@@ -122,4 +122,19 @@ describe('Tool Schemas', () => {
 
     expect(expectedTools.length).toBe(17);
   });
+
+  it('should include extended ShortForge AI video editing tools', () => {
+    const extendedTools = [
+      'create_timeline',
+      'set_timeline_settings',
+      'append_clip_to_timeline',
+      'create_subtitle_track',
+      'import_subtitles',
+      'start_render_job',
+      'get_render_job_status',
+      'cancel_render_job',
+    ];
+
+    expect(extendedTools.length).toBe(8);
+  });
 });

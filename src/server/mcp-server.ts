@@ -122,6 +122,46 @@ const ScreenshotSchema = z.object({
   height: z.number().int().positive().optional(),
 });
 
+const CreateTimelineSchema = z.object({
+  name: z.string().min(1),
+});
+
+const SetTimelineSettingsSchema = z.object({
+  timelineId: z.string(),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  frameRate: z.number().positive(),
+});
+
+const AppendClipSchema = z.object({
+  mediaPoolItemId: z.string(),
+  timelineId: z.string().optional(),
+});
+
+const CreateSubtitleTrackSchema = z.object({
+  timelineId: z.string(),
+  trackName: z.string().optional(),
+});
+
+const ImportSubtitlesSchema = z.object({
+  timelineId: z.string(),
+  srtPath: z.string().min(1),
+});
+
+const StartRenderJobSchema = z.object({
+  targetDir: z.string().min(1),
+  customName: z.string().min(1),
+  format: z.string().default("MP4"),
+  codec: z.string().default("H264"),
+  width: z.number().int().positive().default(1080),
+  height: z.number().int().positive().default(1920),
+  frameRate: z.number().positive().optional(),
+});
+
+const RenderJobStatusSchema = z.object({
+  jobId: z.string().min(1),
+});
+
 // Define all tools
 const TOOLS: Tool[] = [
   // Project & Timeline Inspection
@@ -501,6 +541,106 @@ const TOOLS: Tool[] = [
       properties: {},
     },
   },
+  {
+    name: "create_timeline",
+    description: "Create a new empty timeline in the current project",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Name for the new timeline" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "set_timeline_settings",
+    description: "Set timeline resolution and frame rate (e.g. 1080x1920 30fps for YouTube Shorts)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        timelineId: { type: "string", description: "Unique ID of the timeline" },
+        width: { type: "number", description: "Width in pixels (e.g. 1080)" },
+        height: { type: "number", description: "Height in pixels (e.g. 1920)" },
+        frameRate: { type: "number", description: "Timeline frame rate (e.g. 30)" },
+      },
+      required: ["timelineId", "width", "height", "frameRate"],
+    },
+  },
+  {
+    name: "append_clip_to_timeline",
+    description: "Append a clip from the media pool onto the timeline",
+    inputSchema: {
+      type: "object",
+      properties: {
+        mediaPoolItemId: { type: "string", description: "Unique ID or name of media pool item" },
+        timelineId: { type: "string", description: "Optional target timeline ID" },
+      },
+      required: ["mediaPoolItemId"],
+    },
+  },
+  {
+    name: "create_subtitle_track",
+    description: "Add a subtitle track to the timeline",
+    inputSchema: {
+      type: "object",
+      properties: {
+        timelineId: { type: "string", description: "Unique ID of the timeline" },
+        trackName: { type: "string", description: "Optional name for the subtitle track" },
+      },
+      required: ["timelineId"],
+    },
+  },
+  {
+    name: "import_subtitles",
+    description: "Import an SRT subtitle file onto the timeline",
+    inputSchema: {
+      type: "object",
+      properties: {
+        timelineId: { type: "string", description: "Unique ID of the timeline" },
+        srtPath: { type: "string", description: "Absolute path to the .srt file" },
+      },
+      required: ["timelineId", "srtPath"],
+    },
+  },
+  {
+    name: "start_render_job",
+    description: "Configure and start a render job in DaVinci Resolve",
+    inputSchema: {
+      type: "object",
+      properties: {
+        targetDir: { type: "string", description: "Output directory path" },
+        customName: { type: "string", description: "Output filename without extension" },
+        format: { type: "string", description: "Render format (e.g. MP4, QuickTime)" },
+        codec: { type: "string", description: "Render codec (e.g. H264, H265, ProRes)" },
+        width: { type: "number", description: "Output width in pixels (e.g. 1080)" },
+        height: { type: "number", description: "Output height in pixels (e.g. 1920)" },
+        frameRate: { type: "number", description: "Optional output frame rate (e.g. 30)" },
+      },
+      required: ["targetDir", "customName"],
+    },
+  },
+  {
+    name: "get_render_job_status",
+    description: "Get the status and completion percentage of a render job",
+    inputSchema: {
+      type: "object",
+      properties: {
+        jobId: { type: "string", description: "Unique ID of the render job" },
+      },
+      required: ["jobId"],
+    },
+  },
+  {
+    name: "cancel_render_job",
+    description: "Cancel a running render job in DaVinci Resolve",
+    inputSchema: {
+      type: "object",
+      properties: {
+        jobId: { type: "string", description: "Unique ID of the render job to cancel" },
+      },
+      required: ["jobId"],
+    },
+  },
 ];
 
 export class ResolveMCPServer {
@@ -611,6 +751,32 @@ export class ResolveMCPServer {
     }
     if (name === "get_resolve_version") {
       return this.handleGetResolveVersion();
+    }
+
+    // Extended ShortForge AI Tools
+    if (name === "create_timeline") {
+      return this.handleCreateTimeline(args);
+    }
+    if (name === "set_timeline_settings") {
+      return this.handleSetTimelineSettings(args);
+    }
+    if (name === "append_clip_to_timeline") {
+      return this.handleAppendClipToTimeline(args);
+    }
+    if (name === "create_subtitle_track") {
+      return this.handleCreateSubtitleTrack(args);
+    }
+    if (name === "import_subtitles") {
+      return this.handleImportSubtitles(args);
+    }
+    if (name === "start_render_job") {
+      return this.handleStartRenderJob(args);
+    }
+    if (name === "get_render_job_status") {
+      return this.handleGetRenderJobStatus(args);
+    }
+    if (name === "cancel_render_job") {
+      return this.handleCancelRenderJob(args);
     }
 
     throw new Error(`Unknown tool: ${name}`);
@@ -1041,6 +1207,190 @@ export class ResolveMCPServer {
         },
       ],
     };
+  }
+
+  private async handleCreateTimeline(args: unknown) {
+    const options = CreateTimelineSchema.parse(args);
+
+    return withApproval(
+      "create_timeline",
+      `Create new timeline "${options.name}"`,
+      options,
+      async () => {
+        const result = await bridgeClient.createTimeline(options);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result.data, null, 2),
+            },
+          ],
+        };
+      },
+    );
+  }
+
+  private async handleSetTimelineSettings(args: unknown) {
+    const options = SetTimelineSettingsSchema.parse(args);
+
+    return withApproval(
+      "set_timeline_settings",
+      `Set timeline ${options.timelineId} settings to ${options.width}x${options.height} @ ${options.frameRate}fps`,
+      options,
+      async () => {
+        const result = await bridgeClient.setTimelineSettings(options);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: result.data.message,
+            },
+          ],
+        };
+      },
+    );
+  }
+
+  private async handleAppendClipToTimeline(args: unknown) {
+    const options = AppendClipSchema.parse(args);
+
+    return withApproval(
+      "append_clip_to_timeline",
+      `Append media pool item ${options.mediaPoolItemId} to timeline`,
+      options,
+      async () => {
+        const result = await bridgeClient.appendClipToTimeline(options);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: result.data.message,
+            },
+          ],
+        };
+      },
+    );
+  }
+
+  private async handleCreateSubtitleTrack(args: unknown) {
+    const options = CreateSubtitleTrackSchema.parse(args);
+
+    return withApproval(
+      "create_subtitle_track",
+      `Create subtitle track on timeline ${options.timelineId}`,
+      options,
+      async () => {
+        const result = await bridgeClient.createSubtitleTrack(options);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: result.data.message,
+            },
+          ],
+        };
+      },
+    );
+  }
+
+  private async handleImportSubtitles(args: unknown) {
+    const options = ImportSubtitlesSchema.parse(args);
+
+    return withApproval(
+      "import_subtitles",
+      `Import subtitles from ${options.srtPath} into timeline ${options.timelineId}`,
+      options,
+      async () => {
+        const result = await bridgeClient.importSubtitles(options);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: result.data.message,
+            },
+          ],
+        };
+      },
+    );
+  }
+
+  private async handleStartRenderJob(args: unknown) {
+    const options = StartRenderJobSchema.parse(args);
+
+    return withApproval(
+      "start_render_job",
+      `Start rendering ${options.customName}.${options.format} to ${options.targetDir} (${options.width}x${options.height})`,
+      options,
+      async () => {
+        const result = await bridgeClient.startRenderJob(options);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result.data, null, 2),
+            },
+          ],
+        };
+      },
+    );
+  }
+
+  private async handleGetRenderJobStatus(args: unknown) {
+    const options = RenderJobStatusSchema.parse(args);
+    const result = await bridgeClient.getRenderJobStatus(options);
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify(result.data, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleCancelRenderJob(args: unknown) {
+    const options = RenderJobStatusSchema.parse(args);
+
+    return withApproval(
+      "cancel_render_job",
+      `Cancel render job ${options.jobId}`,
+      options,
+      async () => {
+        const result = await bridgeClient.cancelRenderJob(options);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: result.data.message,
+            },
+          ],
+        };
+      },
+    );
   }
 
   async run(): Promise<void> {

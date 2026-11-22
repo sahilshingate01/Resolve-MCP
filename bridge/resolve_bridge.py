@@ -722,6 +722,180 @@ class ResolveBridge:
         frame = (timecode.get("hours", 0) * 3600 + timecode.get("minutes", 0) * 60 + timecode.get("seconds", 0)) * fps + timecode.get("frames", 0)
         return self.render_frame(timeline_id, frame, format, width, height)
 
+    def _get_timeline_by_id(self, timeline_id: str):
+        if not self.current_project:
+            return None
+        tl = self.current_project.GetCurrentTimeline()
+        if tl and str(tl.GetUniqueId()) == timeline_id:
+            return tl
+        for i in range(1, self.current_project.GetTimelineCount() + 1):
+            t = self.current_project.GetTimelineByIndex(i)
+            if t and str(t.GetUniqueId()) == timeline_id:
+                return t
+        return tl
+
+    def _find_media_pool_item_by_id(self, folder, item_id: str):
+        if not folder:
+            return None
+        clips = folder.GetClipList()
+        if clips:
+            for c in clips:
+                if str(c.GetUniqueId()) == item_id or c.GetName() == item_id:
+                    return c
+        sub_folders = folder.GetSubFolderList()
+        if sub_folders:
+            for sub in sub_folders:
+                found = self._find_media_pool_item_by_id(sub, item_id)
+                if found:
+                    return found
+        return None
+
+    def create_timeline(self, name: str) -> Dict[str, Any]:
+        """Create a new empty timeline"""
+        if not self.current_project:
+            return {"error": "No project open"}
+        media_pool = self.current_project.GetMediaPool()
+        if not media_pool:
+            return {"error": "No media pool available"}
+        try:
+            tl = media_pool.CreateEmptyTimeline(name)
+            if tl:
+                return {
+                    "success": True,
+                    "timelineId": str(tl.GetUniqueId()),
+                    "name": tl.GetName(),
+                    "message": f"Timeline '{name}' created successfully"
+                }
+            return {"error": f"Failed to create empty timeline '{name}'"}
+        except Exception as e:
+            return {"error": f"Create timeline failed: {str(e)}", "traceback": traceback.format_exc()}
+
+    def set_timeline_settings(self, timeline_id: str, width: int, height: int, frame_rate: float) -> Dict[str, Any]:
+        """Set timeline resolution and frame rate"""
+        if not self.current_project:
+            return {"error": "No project open"}
+        timeline = self._get_timeline_by_id(timeline_id)
+        if not timeline:
+            return {"error": f"Timeline not found: {timeline_id}"}
+        try:
+            timeline.SetSetting("useCustomSettings", "1")
+            timeline.SetSetting("timelineResolutionWidth", str(width))
+            timeline.SetSetting("timelineResolutionHeight", str(height))
+            timeline.SetSetting("timelineFrameRate", str(frame_rate))
+            return {
+                "success": True,
+                "message": f"Timeline settings updated to {width}x{height} @ {frame_rate}fps"
+            }
+        except Exception as e:
+            return {"error": f"Set timeline settings failed: {str(e)}", "traceback": traceback.format_exc()}
+
+    def append_clip_to_timeline(self, media_pool_item_id: str, timeline_id: Optional[str] = None) -> Dict[str, Any]:
+        """Append a media pool item to timeline"""
+        if not self.current_project:
+            return {"error": "No project open"}
+        media_pool = self.current_project.GetMediaPool()
+        if not media_pool:
+            return {"error": "No media pool available"}
+        item = self._find_media_pool_item_by_id(media_pool.GetRootFolder(), media_pool_item_id)
+        if not item:
+            return {"error": f"Media pool item not found: {media_pool_item_id}"}
+        try:
+            appended = media_pool.AppendToTimeline([item])
+            if appended:
+                first_clip = appended[0] if len(appended) > 0 else None
+                clip_id = str(first_clip.GetUniqueId()) if first_clip else ""
+                return {
+                    "success": True,
+                    "clipId": clip_id,
+                    "message": "Clip appended to timeline successfully"
+                }
+            return {"error": "Failed to append clip to timeline"}
+        except Exception as e:
+            return {"error": f"Append clip failed: {str(e)}", "traceback": traceback.format_exc()}
+
+    def create_subtitle_track(self, timeline_id: str, track_name: str = "Subtitles") -> Dict[str, Any]:
+        """Create a subtitle track on timeline"""
+        if not self.current_project:
+            return {"error": "No project open"}
+        timeline = self._get_timeline_by_id(timeline_id)
+        if not timeline:
+            return {"error": f"Timeline not found: {timeline_id}"}
+        try:
+            res = timeline.AddTrack("subtitle")
+            return {"success": True, "message": f"Subtitle track added"}
+        except Exception as e:
+            return {"error": f"Add subtitle track failed: {str(e)}", "traceback": traceback.format_exc()}
+
+    def import_subtitles(self, timeline_id: str, srt_path: str) -> Dict[str, Any]:
+        """Import SRT subtitles into timeline"""
+        if not self.current_project:
+            return {"error": "No project open"}
+        timeline = self._get_timeline_by_id(timeline_id)
+        if not timeline:
+            return {"error": f"Timeline not found: {timeline_id}"}
+        try:
+            res = timeline.ImportIntoTimeline(srt_path)
+            if res:
+                return {"success": True, "message": f"Subtitles imported from {srt_path}"}
+            return {"error": f"Import subtitles returned false for {srt_path}"}
+        except Exception as e:
+            return {"error": f"Import subtitles failed: {str(e)}", "traceback": traceback.format_exc()}
+
+    def start_render_job(self, target_dir: str, custom_name: str, format: str = "MP4", codec: str = "H264",
+                         width: int = 1080, height: int = 1920, frame_rate: float = 30.0) -> Dict[str, Any]:
+        """Start a render job in DaVinci Resolve"""
+        if not self.current_project:
+            return {"error": "No project open"}
+        try:
+            self.current_project.SetRenderSettings({
+                "TargetDir": target_dir,
+                "CustomName": custom_name,
+                "ExportVideo": True,
+                "ExportAudio": True,
+                "FormatWidth": width,
+                "FormatHeight": height,
+                "FrameRate": frame_rate
+            })
+            self.current_project.SetCurrentRenderFormatAndCodec(format.lower(), codec)
+            job_id = self.current_project.AddRenderJob()
+            if job_id:
+                self.current_project.StartRendering([job_id])
+                return {
+                    "success": True,
+                    "jobId": str(job_id),
+                    "message": f"Render job {job_id} started"
+                }
+            return {"error": "Failed to add render job"}
+        except Exception as e:
+            return {"error": f"Start render failed: {str(e)}", "traceback": traceback.format_exc()}
+
+    def get_render_job_status(self, job_id: str) -> Dict[str, Any]:
+        """Get status of a render job"""
+        if not self.current_project:
+            return {"error": "No project open"}
+        try:
+            status = self.current_project.GetRenderJobStatus(job_id)
+            is_rendering = self.current_project.IsRenderingInProgress()
+            return {
+                "success": True,
+                "status": status.get("JobStatus", "Unknown") if isinstance(status, dict) else str(status),
+                "completionPercentage": status.get("CompletionPercentage", 100 if not is_rendering else 50) if isinstance(status, dict) else 0,
+                "isRendering": is_rendering
+            }
+        except Exception as e:
+            return {"error": f"Get render status failed: {str(e)}", "traceback": traceback.format_exc()}
+
+    def cancel_render_job(self, job_id: str) -> Dict[str, Any]:
+        """Cancel a render job"""
+        if not self.current_project:
+            return {"error": "No project open"}
+        try:
+            self.current_project.StopRendering()
+            self.current_project.DeleteRenderJob(job_id)
+            return {"success": True, "message": f"Render job {job_id} cancelled"}
+        except Exception as e:
+            return {"error": f"Cancel render failed: {str(e)}", "traceback": traceback.format_exc()}
+
 
 def main():
     """Main entry point for stdio communication"""
@@ -816,6 +990,44 @@ def main():
                     params.get("width"),
                     params.get("height")
                 )
+            elif method == "create_timeline":
+                result["result"] = bridge.create_timeline(params.get("name", "Timeline 1"))
+            elif method == "set_timeline_settings":
+                result["result"] = bridge.set_timeline_settings(
+                    params.get("timelineId", ""),
+                    params.get("width", 1080),
+                    params.get("height", 1920),
+                    params.get("frameRate", 30.0)
+                )
+            elif method == "append_clip_to_timeline":
+                result["result"] = bridge.append_clip_to_timeline(
+                    params.get("mediaPoolItemId", ""),
+                    params.get("timelineId")
+                )
+            elif method == "create_subtitle_track":
+                result["result"] = bridge.create_subtitle_track(
+                    params.get("timelineId", ""),
+                    params.get("trackName", "Subtitles")
+                )
+            elif method == "import_subtitles":
+                result["result"] = bridge.import_subtitles(
+                    params.get("timelineId", ""),
+                    params.get("srtPath", "")
+                )
+            elif method == "start_render_job":
+                result["result"] = bridge.start_render_job(
+                    params.get("targetDir", "/tmp"),
+                    params.get("customName", "output"),
+                    params.get("format", "MP4"),
+                    params.get("codec", "H264"),
+                    params.get("width", 1080),
+                    params.get("height", 1920),
+                    params.get("frameRate", 30.0)
+                )
+            elif method == "get_render_job_status":
+                result["result"] = bridge.get_render_job_status(params.get("jobId", ""))
+            elif method == "cancel_render_job":
+                result["result"] = bridge.cancel_render_job(params.get("jobId", ""))
             elif method == "get_version":
                 result["result"] = bridge.get_version()
             else:
