@@ -21,7 +21,7 @@ program
   .option("--test-connection", "Test connection to DaVinci Resolve and exit");
 
 program
-  .command("serve")
+  .command("serve", { isDefault: true })
   .description("Start the MCP server (default command)")
   .action(async (options: { verbose?: boolean; autoApprove?: boolean }) => {
     if (options.verbose) {
@@ -131,10 +131,5 @@ program
     );
   });
 
-// Default command is serve
+// Parse command line arguments (serve is default command)
 program.parse(process.argv);
-
-// If no command provided, run serve
-if (!process.argv.slice(2).length) {
-  program.parse(["node", "resolve-mcp", "serve"], { from: "user" });
-}
